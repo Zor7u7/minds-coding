@@ -1,121 +1,167 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+﻿import { useState } from 'react'
+import curriculumData from './adaptive/curriculum-data.json'
+import { decideNext } from './adaptive/adaptive-engine.js'
 import './App.css'
 
+const firstQuestion = curriculumData?.questionBank?.[0] ?? null
+const actionLabels = {
+  collect_evidence: 'Recopilar más evidencia',
+}
+
+function normalizeAnswer(value) {
+  return String(value ?? '')
+    .normalize('NFKC')
+    .toLocaleLowerCase('es-MX')
+    .replace(/[−–—]/g, '-')
+    .replace(/\s+/g, '')
+    .replace(/[.,]$/, '')
+}
+
+function isCorrectAnswer(question, response) {
+  const acceptedAnswers = [question.answer, ...(question.acceptedAnswers ?? [])]
+  const normalizedResponse = normalizeAnswer(response)
+  return acceptedAnswers.some((answer) => normalizeAnswer(answer) === normalizedResponse)
+}
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [response, setResponse] = useState('')
+  const [submission, setSubmission] = useState(null)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  if (!firstQuestion) {
+    return (
+      <main className="aa-page">
+        <div className="aa-container">
+          <h1>Aula Adaptativa</h1>
+          <p role="alert">No se encontró un reactivo en la configuración del motor.</p>
+        </div>
+      </main>
+    )
+  }
+
+  const choices = Array.isArray(firstQuestion.choices) ? firstQuestion.choices : []
+
+  function handleSubmit(event) {
+    event.preventDefault()
+    if (!response.trim() || submission) return
+
+    const evidenceEvent = {
+      questionId: firstQuestion.id,
+      correct: isCorrectAnswer(firstQuestion, response),
+      response,
+      attemptNumber: 1,
+      hintCount: 0,
+      feedbackSeen: false,
+      workedExampleSeen: false,
+      supportLevel: 0,
+      phase: 'diagnostic',
+      timestamp: new Date().toISOString(),
+    }
+
+    try {
+      const decision = decideNext({
+        history: [evidenceEvent],
+        currentGrade: 1,
+        currentSkillId: firstQuestion.skillId,
+        completedActivityIds: [],
+        pendingIntervention: null,
+        config: curriculumData,
+      })
+      setSubmission({ event: evidenceEvent, decision })
+      setErrorMessage('')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'No se pudo procesar la respuesta.')
+      setSubmission(null)
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <main className="aa-page">
+      <div className="aa-container">
+        <header className="aa-header">
+          <p className="aa-eyebrow">Matemáticas · Secundaria</p>
+          <h1>Aula Adaptativa</h1>
+          <p className="aa-intro">Resuelve este reactivo para iniciar la revisión de tus conocimientos.</p>
+        </header>
 
-      <div className="ticks"></div>
+        <section className="aa-card" aria-labelledby="diagnostic-title">
+          <div className="aa-card-heading">
+            <span className="aa-step">Reactivo 1</span>
+            <span className="aa-skill">{curriculumData.skills.find((skill) => skill.id === firstQuestion.skillId)?.label ?? firstQuestion.skillId}</span>
+          </div>
+          <h2 id="diagnostic-title">Pregunta diagnóstica</h2>
+          <p className="aa-prompt">{firstQuestion.prompt}</p>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+          <form onSubmit={handleSubmit}>
+            {choices.length > 0 ? (
+              <fieldset className="aa-choices" disabled={Boolean(submission)}>
+                <legend className="aa-sr-only">Elige una respuesta</legend>
+                {choices.map((choice) => (
+                  <label className="aa-choice" key={choice}>
+                    <input
+                      type="radio"
+                      name="diagnostic-answer"
+                      value={choice}
+                      checked={response === choice}
+                      onChange={(event) => setResponse(event.target.value)}
+                    />
+                    <span>{choice}</span>
+                  </label>
+                ))}
+              </fieldset>
+            ) : (
+              <div className="aa-answer-field">
+                <label htmlFor="diagnostic-answer">Tu respuesta</label>
+                <input
+                  id="diagnostic-answer"
+                  type="text"
+                  value={response}
+                  onChange={(event) => setResponse(event.target.value)}
+                  disabled={Boolean(submission)}
+                  autoComplete="off"
+                  required
+                />
+              </div>
+            )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+            <button className="aa-submit" type="submit" disabled={!response.trim() || Boolean(submission)}>
+              Enviar respuesta
+            </button>
+          </form>
+        </section>
+
+        {errorMessage && <p className="aa-error" role="alert">No se pudo procesar la respuesta: {errorMessage}</p>}
+
+        {submission && (
+          <section className="aa-result" aria-labelledby="recommendation-title" aria-live="polite">
+            <p className="aa-eyebrow">Respuesta registrada</p>
+            <h2 id="recommendation-title">Recomendación del motor</h2>
+            <p><strong>Acción:</strong> {actionLabels[submission.decision.action] ?? submission.decision.action}</p>
+            <p>{submission.decision.reason}</p>
+
+            {submission.decision.questionId && (
+              <p className="aa-next-question">
+                El motor propone como siguiente reactivo: <code>{submission.decision.questionId}</code>.
+              </p>
+            )}
+
+            {submission.decision.evidence && (
+              <dl className="aa-evidence">
+                <div><dt>Reactivos independientes</dt><dd>{submission.decision.evidence.independentItems ?? 0}</dd></div>
+                <div><dt>Respuestas correctas</dt><dd>{submission.decision.evidence.correct ?? 0}</dd></div>
+                <div><dt>Precisión observada</dt><dd>{submission.decision.evidence.accuracy === null || submission.decision.evidence.accuracy === undefined ? 'Sin datos' : `${Math.round(submission.decision.evidence.accuracy * 100)}%`}</dd></div>
+              </dl>
+            )}
+
+            <p className="aa-limit-note">Esta es una recomendación basada en la evidencia de este intento; no certifica dominio.</p>
+            <details className="aa-event-details">
+              <summary>Ver registro de evidencia</summary>
+              <pre>{JSON.stringify(submission.event, null, 2)}</pre>
+            </details>
+          </section>
+        )}
+      </div>
+    </main>
   )
 }
 
